@@ -18,32 +18,50 @@ import EventTarget from '../event-target';
 class Track extends EventTarget {
   constructor(options = {}) {
     super();
+    if (!options.tech) {
+      throw new Error('A tech was not provided.');
+    }
 
     let track = this;
+    let type = options.trackType || 'generic';
     if (browser.IS_IE8) {
-      track = document.createElement('custom');
-      for (let prop in Track.prototype) {
+      track = document.createElement('custom_' + type);
+
+      for (let prop in track.prototype) {
         if (prop !== 'constructor') {
-          track[prop] = Track.prototype[prop];
+          track[prop] = track.prototype[prop];
         }
       }
     }
+    track.tech_ = options.tech;
 
-    let trackProps = {
-      id: options.id || 'vjs_track_' + Guid.newGUID(),
-      kind: options.kind || '',
-      label: options.label || '',
-      language: options.language || ''
-    };
+    let id = options.id || 'vjs_' + type + '_track_' + Guid.newGUID();
+    let kind = options.kind || '';
+    let label = options.label || '';
+    let language = options.language || '';
 
-    for (let key in trackProps) {
-      Object.defineProperty(track, key, {
-        get() { return trackProps[key]; },
+    Object.defineProperties(track, {
+      kind: {
+        get() { return kind; },
         set() {}
-      });
-    }
+      },
+      label: {
+        get() { return label; },
+        set() {}
+      },
+      language: {
+        get() { return language; },
+        set() {}
+      },
+      id: {
+        get() { return id; },
+        set() {}
+      }
+    });
 
-    return track;
+    if (browser.IS_IE8) {
+      return track;
+    }
   }
 }
 

@@ -3,15 +3,13 @@
  */
 import TextTrackCueList from './text-track-cue-list';
 import * as Fn from '../utils/fn.js';
-import {TextTrackKind, TextTrackMode} from './track-enums';
+import * as TextTrackEnum from './text-track-enums';
 import log from '../utils/log.js';
 import document from 'global/document';
 import window from 'global/window';
 import Track from './track.js';
 import { isCrossOrigin } from '../utils/url.js';
 import XHR from 'xhr';
-import merge from '../utils/merge-options';
-import * as browser from '../utils/browser.js';
 
 /**
  * takes a webvtt file contents and parses it into cues
@@ -66,22 +64,14 @@ const loadTrack = function(src, track) {
 
     track.loaded_ = true;
 
-    // Make sure that vttjs has loaded, otherwise, wait till it finished loading
     // NOTE: this is only used for the alt/video.novtt.js build
     if (typeof window.WebVTT !== 'function') {
-      if (track.tech_) {
-        let loadHandler = () => parseCues(responseBody, track);
-        track.tech_.on('vttjsloaded', loadHandler);
-        track.tech_.on('vttjserror', () => {
-          log.error(`vttjs failed to load, stopping trying to process ${track.src}`);
-          track.tech_.off('vttjsloaded', loadHandler);
-        });
-
-      }
+      window.setTimeout(function() {
+        parseCues(responseBody, track);
+      }, 100);
     } else {
       parseCues(responseBody, track);
     }
-
   }));
 };
 
@@ -114,31 +104,17 @@ const loadTrack = function(src, track) {
  */
 class TextTrack extends Track {
   constructor(options = {}) {
-    if (!options.tech) {
-      throw new Error('A tech was not provided.');
-    }
+    options.kind = TextTrackEnum.TextTrackKind[options.kind] || 'subtitles';
+    options.language = options.language || options.srclang || '';
+    options.trackType = 'text';
+    let mode = TextTrackEnum.TextTrackMode[options.mode] || 'disabled';
 
-    let settings = merge(options, {
-      kind: TextTrackKind[options.kind] || 'subtitles',
-      language: options.language || options.srclang || ''
-    });
-    let mode = TextTrackMode[settings.mode] || 'disabled';
-
-    if (settings.kind === 'metadata' || settings.kind === 'chapters') {
+    if (options.kind === 'metadata' || options.kind === 'chapters') {
       mode = 'hidden';
     }
-    // on IE8 this will be a document element
-    // for every other browser this will be a normal object
-    let tt = super(settings);
-    tt.tech_ = settings.tech;
-
-    if (browser.IS_IE8) {
-      for (let prop in TextTrack.prototype) {
-        if (prop !== 'constructor') {
-          tt[prop] = TextTrack.prototype[prop];
-        }
-      }
-    }
+    // retval will only be defined on IE8, which is when we need it
+    let retval = super(options);
+    let tt = this;
 
     tt.cues_ = [];
     tt.activeCues_ = [];
@@ -163,7 +139,7 @@ class TextTrack extends Track {
         return mode;
       },
       set(newMode) {
-        if (!TextTrackMode[newMode]) {
+        if (!TextTrackEnum.TextTrackMode[newMode]) {
           return;
         }
         mode = newMode;
@@ -231,14 +207,14 @@ class TextTrack extends Track {
       set() {}
     });
 
-    if (settings.src) {
-      tt.src = settings.src;
-      loadTrack(settings.src, tt);
+    if (options.src) {
+      tt.src = options.src;
+      loadTrack(options.src, tt);
     } else {
       tt.loaded_ = true;
     }
 
-    return tt;
+    return retval;
   }
 
   /**

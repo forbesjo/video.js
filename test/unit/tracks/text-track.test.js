@@ -1,13 +1,7 @@
-import window from 'global/window';
-import EventTarget from '../../../src/js/event-target.js';
 import TrackBaseline from './track-baseline';
 import TechFaker from '../tech/tech-faker';
 import TextTrack from '../../../src/js/tracks/text-track.js';
 import TestHelpers from '../test-helpers.js';
-import log from '../../../src/js/utils/log.js';
-import proxyquireify from 'proxyquireify';
-
-const proxyquire = proxyquireify(require);
 
 const defaultTech = {
   textTracks() {},
@@ -25,13 +19,6 @@ TrackBaseline(TextTrack, {
   label: 'English',
   language: 'en',
   tech: defaultTech
-});
-
-test('requires a tech', function() {
-  let error = new Error('A tech was not provided.');
-
-  q.throws(() => new TextTrack({}), error, 'a tech is required');
-  q.throws(() => new TextTrack({tech: null}), error, 'a tech is required');
 });
 
 test('can create a TextTrack with a mode property', function() {
@@ -243,145 +230,4 @@ test('fires cuechange when cues become active and inactive', function() {
   equal(changes, 4, 'a cuechange event trigger addEventListener and oncuechange');
 
   player.dispose();
-});
-
-test('tracks are parsed if vttjs is loaded', function() {
-  const clock = sinon.useFakeTimers();
-  const oldVTT = window.WebVTT;
-  let parserCreated = false;
-
-  window.WebVTT = () => {};
-  window.WebVTT.StringDecoder = () => {};
-  window.WebVTT.Parser = () => {
-    parserCreated = true;
-    return {
-      oncue() {},
-      onparsingerror() {},
-      onflush() {},
-      parse() {},
-      flush() {}
-    };
-  };
-
-  // use proxyquire to stub xhr module because IE8s XDomainRequest usage
-  let xhrHandler;
-  let TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {
-    xhr(options, fn) {
-      xhrHandler  = fn;
-    }
-  });
-
-  let tt = new TextTrack({
-    tech: defaultTech,
-    src: 'http://example.com'
-  });
-
-  xhrHandler(null, {}, 'WEBVTT\n');
-
-  ok(parserCreated, 'WebVTT is loaded, so we can just parse');
-
-  clock.restore();
-  window.WebVTT = oldVTT;
-  TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {});
-});
-
-test('tracks are parsed once vttjs is loaded', function() {
-  const clock = sinon.useFakeTimers();
-  const oldVTT = window.WebVTT;
-  let parserCreated = false;
-
-  // use proxyquire to stub xhr module because IE8s XDomainRequest usage
-  let xhrHandler;
-  let TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {
-    xhr(options, fn) {
-      xhrHandler  = fn;
-    }
-  });
-
-  window.WebVTT = true;
-
-  let testTech = new EventTarget();
-  testTech.textTracks = () => {};
-  testTech.currentTime = () => {};
-
-  let tt = new TextTrack({
-    tech: testTech,
-    src: 'http://example.com'
-  });
-
-  xhrHandler(null, {}, 'WEBVTT\n');
-
-  ok(!parserCreated, 'WebVTT is not loaded, do not try to parse yet');
-
-  clock.tick(100);
-  ok(!parserCreated, 'WebVTT still not loaded, do not try to parse yet');
-
-  window.WebVTT = () => {};
-  window.WebVTT.StringDecoder = () => {};
-  window.WebVTT.Parser = () => {
-    parserCreated = true;
-    return {
-      oncue() {},
-      onparsingerror() {},
-      onflush() {},
-      parse() {},
-      flush() {}
-    };
-  };
-
-  testTech.trigger('vttjsloaded');
-  ok(parserCreated, 'WebVTT is loaded, so we can parse now');
-
-  clock.restore();
-  window.WebVTT = oldVTT;
-  TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {});
-});
-
-test('stops processing if vttjs loading errored out', function() {
-  const clock = sinon.useFakeTimers();
-  const oldVTT = window.WebVTT;
-  let parserCreated = false;
-  window.WebVTT = true;
-
-  // use proxyquire to stub xhr module because IE8s XDomainRequest usage
-  let xhrHandler;
-  let errorMsg;
-  let TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {
-    xhr(options, fn) {
-      xhrHandler  = fn;
-    },
-    '../utils/log.js': {
-      error(msg) {
-        errorMsg = msg;
-      }
-    }
-  });
-
-  let testTech = new EventTarget();
-  testTech.textTracks = () => {};
-  testTech.currentTime = () => {};
-
-  sinon.stub(testTech, 'off');
-  testTech.off.withArgs('vttjsloaded');
-
-  let tt = new TextTrack({
-    tech: testTech,
-    src: 'http://example.com'
-  });
-
-  xhrHandler(null, {}, 'WEBVTT\n');
-
-  ok(!parserCreated, 'WebVTT is not loaded, do not try to parse yet');
-
-  testTech.trigger('vttjserror');
-  let offSpyCall = testTech.off.getCall(0);
-
-  ok(/^vttjs failed to load, stopping trying to process/.test(errorMsg),
-     'vttjs failed to load, so, we logged an error');
-  ok(!parserCreated, 'WebVTT is not loaded, do not try to parse yet');
-  ok(offSpyCall, 'tech.off was called');
-
-  clock.restore();
-  window.WebVTT = oldVTT;
-  TextTrack = proxyquire('../../../src/js/tracks/text-track.js', {});
 });

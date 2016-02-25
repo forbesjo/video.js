@@ -1,6 +1,3 @@
-import * as browser from '../../../src/js/utils/browser.js';
-import document from 'global/document';
-
 /**
  * Tests baseline functionality for all tracks
  *
@@ -8,6 +5,12 @@ import document from 'global/document';
  # @param {Object} options the options to setup a track with
  */
 const TrackBaseline = function(TrackClass, options) {
+  test('requires a tech', function() {
+    let error = new Error('A tech was not provided.');
+
+    q.throws(() => new TrackClass({}), error, 'a tech is required');
+    q.throws(() => new TrackClass({tech: null}), error, 'a tech is required');
+  });
 
   test('is setup with id, kind, label, and language', function() {
     let track = new TrackClass(options);
@@ -30,13 +33,9 @@ const TrackBaseline = function(TrackClass, options) {
     equal(track.id, options.id, 'we have an id');
   });
 
-  test('returns an instance of itself on non ie8 browsers', function() {
+  test('returns an instance of of itself on all browsers', function() {
     let track = new TrackClass(options);
-    if (browser.IS_IE8) {
-      ok(track, 'returns an object on ie8');
-      return;
-    }
-    ok(track instanceof TrackClass, 'returns an instance');
+    ok(track instanceof TrackClass, 'object is returned');
   });
 };
 
