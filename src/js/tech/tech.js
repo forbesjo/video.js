@@ -327,9 +327,10 @@ class Tech extends Component {
    * @method initTrackListeners
    */
   initTrackListeners() {
-    const trackTypes = ['video', 'audio'];
+    const typesTracks = ['video', 'audio'];
 
-    trackTypes.forEach((type) => {
+    for (let i = 0; i < typesTracks.length; i++) {
+      let type = typesTracks[i];
       let trackListChanges = () => {
         this.trigger(`${type}trackchange`);
       };
@@ -343,7 +344,7 @@ class Tech extends Component {
         tracks.removeEventListener('removetrack', trackListChanges);
         tracks.removeEventListener('addtrack', trackListChanges);
       });
-    });
+    }
   }
 
   /**
@@ -360,16 +361,7 @@ class Tech extends Component {
     if (!window['WebVTT'] && this.el().parentNode != null) {
       let script = document.createElement('script');
       script.src = this.options_['vtt.js'] || '../node_modules/videojs-vtt.js/dist/vtt.js';
-      script.onload = () => {
-        this.trigger('vttjsloaded');
-      };
-      script.onerror = () => {
-        this.trigger('vttjserror');
-      };
-      this.on('dispose', () => {
-        script.onload = null;
-        script.onerror = null;
-      });
+      // we set this to true so that we know we are in the process of loading
       // but have not loaded yet and we set it to true before the inject so that
       // we don't overwrite the injected window.WebVTT if it loads right away
       window['WebVTT'] = true;
